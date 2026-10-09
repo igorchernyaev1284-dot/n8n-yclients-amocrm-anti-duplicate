@@ -1,0 +1,595 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "url": "=https://[YOUR_SUBDOMAIN].amocrm.ru/api/v4/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [512, -112],
+      "id": "7f9e43a2-ba3a-4955-a431-5dfaacf73220",
+      "name": "Amo: Поиск контакта",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VofLOEpbXuFi48T0",
+          "name": "АМО CRM мой"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://[YOUR_SUBDOMAIN].amocrm.ru/api/v4/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"name\": \"{{ $('Set: Нормализация данных').item.json.client_name }}\",\n    \"custom_fields_values\": [\n      {\n        \"field_code\": \"PHONE\",\n        \"values\": [\n          {\n            \"value\": \"{{ $('Set: Нормализация данных').item.json.phone }}\",\n            \"enum_code\": \"WORK\"\n          }\n        ]\n      }\n    ]\n  }\n]",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1024, 16],
+      "id": "8fa564e6-eccd-4a2f-a1cf-fb552466a384",
+      "name": "Amo: Создание контакта",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VofLOEpbXuFi48T0",
+          "name": "АМО CRM мой"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "[YOUR_CHAT_ID]",
+        "text": "=⚡️ <b>ВНИМАНИЕ РОП: ПОВТОРНАЯ ЗАПИСЬ!</b>\n\n<b>Клиент:</b> {{ $('Set: Нормализация данных').item.json.client_name }}\n<b>Телефон:</b> <code>+{{ $('Set: Нормализация данных').item.json.phone }}</code>\n<b>Услуга:</b> {{ $('Set: Нормализация данных').item.json.service_title }}\n<b>Сумма:</b> {{ $('Set: Нормализация данных').item.json.cost }} ₽\n<b>Дата записи:</b> {{ $('Set: Нормализация данных').item.json.booking_date }}\n\n🔗 <a href=\"https://[YOUR_SUBDOMAIN].amocrm.ru/leads/detail/{{ (typeof $('Amo: Получение карточки сделки').item.json.data === 'string' ? JSON.parse($('Amo: Получение карточки сделки').item.json.data) : $('Amo: Получение карточки сделки').item.json).id }}\">Открыть карточку сделки в amoCRM</a>",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2672, -112],
+      "id": "cc5ddf5e-45bc-4a4e-b52c-449d07720af3",
+      "name": "TG: Алерт РОПу",
+      "credentials": {
+        "telegramApi": {
+          "id": "8RAYZ594qKNNmlIF",
+          "name": "KontentZavod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yclients-booking",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-32, -112],
+      "id": "efe39035-59a6-4655-aaec-b5aa216abe2f",
+      "name": "YCLIENTS: Входящий вебхук"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d87742ce-cc38-47d5-924f-dd857139e6cd",
+              "leftValue": "={{ (typeof $json.data === 'string' ? JSON.parse($json.data) : $json)._embedded?.contacts?.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [736, -112],
+      "id": "a6cb8ad6-ddf8-4193-9112-2f8b797144f7",
+      "name": "If: Контакт найден?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fd4a5997-c8c2-4fa7-a3f4-d2a384122a05",
+              "name": "contact_id",
+              "value": "={{ typeof $json.data === 'string' ? JSON.parse($json.data)._embedded.contacts[0].id : ($json._embedded?.contacts?.[0]?.id || $json.id) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [1248, 16],
+      "id": "9899ba22-51e2-4581-9ae8-d9a75ebf19cc",
+      "name": "Set: Фиксация Contact ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1a4b9c0-4a9f-44ae-8f8b-402ea8a75edd",
+              "name": "phone",
+              "value": "={{ $json.body.data.client.phone.replace(/\\D/g, '') }}",
+              "type": "string"
+            },
+            {
+              "id": "0d03a6da-2d76-4c35-813b-359079ac11e1",
+              "name": "client_name",
+              "value": "={{ $json.body.data.client.name }}",
+              "type": "string"
+            },
+            {
+              "id": "cfdd3ca7-b3e6-4313-9aaa-37de45734531",
+              "name": "booking_date",
+              "value": "={{ DateTime.fromISO($json.body.data.datetime).toFormat('dd.MM.yyyy в HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "df7ce10b-048a-4d25-b651-ffbc11f7b70c",
+              "name": "service_title",
+              "value": "={{ $json.body.data.services[0].title }}",
+              "type": "string"
+            },
+            {
+              "id": "b1a71d56-dd25-4089-9e21-c79bd2e8c43d",
+              "name": "cost",
+              "value": "={{ $json.body.data.cost }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [272, -112],
+      "id": "67154d3e-f13b-4883-8e92-7369859187ac",
+      "name": "Set: Нормализация данных"
+    },
+    {
+      "parameters": {
+        "url": "=https://[YOUR_SUBDOMAIN].amocrm.ru/api/v4/contacts?filter[id]={{ $json.contact_id }}&with=leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1488, 16],
+      "id": "e153c26e-11bf-4f6d-8558-cf76a83897de",
+      "name": "Amo: Поиск сделок контакта",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VofLOEpbXuFi48T0",
+          "name": "АМО CRM мой"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d87742ce-cc38-47d5-924f-dd857139e6cd",
+              "leftValue": "={{ (typeof $json.data === 'string' ? JSON.parse($json.data) : $json)._embedded?.contacts?.[0]?._embedded?.leads?.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1680, 16],
+      "id": "f24d48e4-9c16-45e0-bb48-a7342cf9ddbe",
+      "name": "If: Есть сделки у контакта?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://[YOUR_SUBDOMAIN].amocrm.ru/api/v4/leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"name\": \"Запись из YCLIENTS — {{ $('Set: Нормализация данных').item.json.client_name }}\",\n    \"price\": {{ $('Set: Нормализация данных').item.json.cost }},\n    \"_embedded\": {\n      \"contacts\": [\n        {\n          \"id\": {{ $('Set: Фиксация Contact ID').item.json.contact_id }}\n        }\n      ],\n      \"tags\": [\n        {\n          \"name\": \"YCLIENTS\"\n        }\n      ]\n    }\n  }\n]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1984, 144],
+      "id": "8d2a2aa8-d212-4847-9406-08257aab0277",
+      "name": "Amo: Создание новой сделки",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VofLOEpbXuFi48T0",
+          "name": "АМО CRM мой"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://[YOUR_SUBDOMAIN].amocrm.ru/api/v4/leads/{{ typeof $json.data === 'string' ? JSON.parse($json.data)._embedded.leads[0].id : ($json._embedded?.leads?.[0]?.id || $json[0]?.id) }}/notes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"note_type\": \"common\",\n    \"params\": {\n      \"text\": \"📌 Новая запись из YCLIENTS\\n\\nУслуга: {{ $('Set: Нормализация данных').item.json.service_title }}\\nДата и время: {{ $('Set: Нормализация данных').item.json.booking_date }}\\nСумма: {{ $('Set: Нормализация данных').item.json.cost }} руб.\"\n    }\n  }\n]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [2208, 144],
+      "id": "f392e1e8-6052-4946-bc69-ad38c7771d42",
+      "name": "Amo: Примечание к новой сделке",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VofLOEpbXuFi48T0",
+          "name": "АМО CRM мой"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://[YOUR_SUBDOMAIN].amocrm.ru/api/v4/leads/{{ (typeof $json.data === 'string' ? JSON.parse($json.data) : $json)._embedded.contacts[0]._embedded.leads[0].id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"name\": \"Запись из YCLIENTS — {{ $('Set: Нормализация данных').item.json.client_name }}\",\n    \"price\": {{ $('Set: Нормализация данных').item.json.cost }},\n    \"_embedded\": {\n      \"contacts\": [\n        {\n          \"id\": {{ $('Set: Фиксация Contact ID').item.json.contact_id }}\n        }\n      ],\n      \"tags\": [\n        {\n          \"name\": \"YCLIENTS\"\n        }\n      ]\n    }\n  }\n]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1984, -96],
+      "id": "c30e21ed-0876-4d16-8f38-b1248e43a38a",
+      "name": "Amo: Получение карточки сделки",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VofLOEpbXuFi48T0",
+          "name": "АМО CRM мой"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d87742ce-cc38-47d5-924f-dd857139e6cd",
+              "leftValue": "={{ (typeof $json.data === 'string' ? JSON.parse($json.data) : $json).status_id }}",
+              "rightValue": 142,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "046598b3-753e-41ae-8d04-bd31945bc662",
+              "leftValue": "={{ (typeof $json.data === 'string' ? JSON.parse($json.data) : $json).status_id }}",
+              "rightValue": 143,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2208, -96],
+      "id": "d0c15750-39dd-4414-9592-53b93ff09888",
+      "name": "If: Сделка активна?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://[YOUR_SUBDOMAIN].amocrm.ru/api/v4/leads/{{ (typeof $json.data === 'string' ? JSON.parse($json.data) : $json).id }}/notes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"note_type\": \"common\",\n    \"params\": {\n      \"text\": \"🔄 ПОВТОРНАЯ ЗАПИСЬ YCLIENTS\\n\\nКлиент записался повторно!\\nУслуга: {{ $('Set: Нормализация данных').item.json.service_title }}\\nДата и время: {{ $('Set: Нормализация данных').item.json.booking_date }}\\nСумма: {{ $('Set: Нормализация данных').item.json.cost }} руб.\"\n    }\n  }\n]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [2432, -112],
+      "id": "767b3465-cebf-4701-839d-1d726aa2b304",
+      "name": "Amo: Примечание к существующей сделке",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VofLOEpbXuFi48T0",
+          "name": "АМО CRM мой"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## ⚠️ Архитектура собрана Игорем Черняевым\nСтандартные виджеты плодят дубли — этот шаблон решает проблему.\nНужна кастомная сборка, интеграция сложных API или White-label субподряд?\nПиши напрямую: https://t.me/chernyaevi",
+        "height": 128,
+        "width": 800,
+        "color": "#FFEA00"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1008, -272],
+      "typeVersion": 1,
+      "id": "35c71a2a-b37b-4632-9f73-2f89cd40ba2e",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Amo: Поиск контакта": {
+      "main": [
+        [
+          {
+            "node": "If: Контакт найден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amo: Создание контакта": {
+      "main": [
+        [
+          {
+            "node": "Set: Фиксация Contact ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YCLIENTS: Входящий вебхук": {
+      "main": [
+        [
+          {
+            "node": "Set: Нормализация данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Контакт найден?": {
+      "main": [
+        [
+          {
+            "node": "Set: Фиксация Contact ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Amo: Создание контакта",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Фиксация Contact ID": {
+      "main": [
+        [
+          {
+            "node": "Amo: Поиск сделок контакта",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Нормализация данных": {
+      "main": [
+        [
+          {
+            "node": "Amo: Поиск контакта",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amo: Поиск сделок контакта": {
+      "main": [
+        [
+          {
+            "node": "If: Есть сделки у контакта?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Есть сделки у контакта?": {
+      "main": [
+        [
+          {
+            "node": "Amo: Получение карточки сделки",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Amo: Создание новой сделки",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amo: Создание новой сделки": {
+      "main": [
+        [
+          {
+            "node": "Amo: Примечание к новой сделке",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amo: Получение карточки сделки": {
+      "main": [
+        [
+          {
+            "node": "If: Сделка активна?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Сделка активна?": {
+      "main": [
+        [
+          {
+            "node": "Amo: Примечание к существующей сделке",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Amo: Создание новой сделки",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amo: Примечание к существующей сделке": {
+      "main": [
+        [
+          {
+            "node": "TG: Алерт РОПу",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
